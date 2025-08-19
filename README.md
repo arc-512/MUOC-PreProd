@@ -1,4 +1,4 @@
-# Flags-Appropriate
+# Flags-Appropriate-Wikki
 https://arc-512.itch.io/fa
 
 # FA script build versions
