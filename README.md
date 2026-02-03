@@ -11,9 +11,9 @@ Milestones 2026
 |**Book**|Prologue(TEMP)|
 |--------|--------------|
 |**Lifecycle**||
-||-[]Script Development|
-||-[]Story Boarding|
-||-[]Thumbnailing|
-||-[]Art work|
-||-[]Colouring|
-||-[]Poloshing|
+||[X] Script Development|
+||[ ] Story Boarding|
+||[ ] Thumbnailing|
+||[ ] Art work|
+||[ ] Colouring|
+||[ ] Poloshing|
