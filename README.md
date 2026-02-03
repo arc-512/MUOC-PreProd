@@ -8,12 +8,11 @@ https://drive.google.com/drive/folders/1o5gOUWf-txevHWVCAr8XvDjt4VP6FTzh?usp=dri
 https://drive.google.com/drive/folders/1IMKlDXRRRPlkmb1I9srbZ7gfKa0Kwnbp?usp=drive_link
 
 Milestones 2026
-|Book|Prologue(TEMP)|
-|----|--------------|
-|Lifecycle|---------|
-|---|Script Development|
-|---|Story Boarding|
-|---|thumbnailing|
-|---|Art work|
-|---|Colouring|
-|---|Poloshing|
+|**Book**|Prologue(TEMP)|
+|**Lifecycle**||
+||[]Script Development|
+||[]Story Boarding|
+||[]Thumbnailing|
+||[]Art work|
+||[]Colouring|
+||[]Poloshing|
