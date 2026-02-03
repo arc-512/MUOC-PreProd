@@ -9,6 +9,7 @@ https://drive.google.com/drive/folders/1IMKlDXRRRPlkmb1I9srbZ7gfKa0Kwnbp?usp=dri
 
 Milestones 2026
 |**Book**|Prologue(TEMP)|
+|--------|--------------|
 |**Lifecycle**||
 ||[]Script Development|
 ||[]Story Boarding|
