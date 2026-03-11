@@ -177,6 +177,34 @@ const useStore = create((set, get) => ({
   openModal: (name, data = null) => set({ activeModal: name, modalData: data }),
   closeModal: () => set({ activeModal: null, modalData: null }),
 
+  // ── Objects ────────────────────────────────────────────
+  addObject: (sheetId, object) => set(s => ({
+    sheets: s.sheets.map(sh => sh.id !== sheetId ? sh : {
+      ...sh,
+      objects: [...sh.objects, {
+        id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        ...object,
+      }]
+    })
+  })),
+
+  updateObject: (sheetId, objectId, changes) => set(s => ({
+    sheets: s.sheets.map(sh => sh.id !== sheetId ? sh : {
+      ...sh,
+      objects: sh.objects.map(o => o.id !== objectId ? o : { ...o, ...changes })
+    })
+  })),
+
+  deleteObject: (sheetId, objectId) => set(s => ({
+    sheets: s.sheets.map(sh => sh.id !== sheetId ? sh : {
+      ...sh,
+      objects: sh.objects.filter(o => o.id !== objectId)
+    })
+  })),
+
+  selectedObjectId: null,
+  setSelectedObject: (id) => set({ selectedObjectId: id }),
+
   // ── Sync status ────────────────────────────────────────
   lastSynced: null,
   syncStatus: 'idle',

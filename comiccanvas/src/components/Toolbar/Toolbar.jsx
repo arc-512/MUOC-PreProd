@@ -1,8 +1,5 @@
 import useStore from '../../store'
-import {
-  MousePointer2, Pen, Eraser, Square, Circle, Triangle,
-  Type, Image, Link2, Maximize2, Move, AlignLeft, Grid3x3, Ruler
-} from 'lucide-react'
+import { MousePointer2, Move, Pen, Eraser, Square, MessageCircleMore, LayoutGrid, Type } from 'lucide-react'
 
 function ArrowIcon({ size = 16 }) {
   return (
@@ -37,25 +34,9 @@ const TOOL_GROUPS = [
   {
     tools: [
       { id: 'rect', icon: Square, label: 'Rectangle (R)' },
-      { id: 'circle', icon: Circle, label: 'Circle (C)' },
-      { id: 'triangle', icon: Triangle, label: 'Triangle' },
-      { id: 'arrow', icon: ArrowIcon, label: 'Arrow (A)' },
-      { id: 'speech', icon: SpeechBubbleIcon, label: 'Speech Bubble' },
-      { id: 'caption', icon: AlignLeft, label: 'Caption Box' },
-      { id: 'panel', icon: Maximize2, label: 'Panel Frame (P)' },
-    ]
-  },
-  {
-    tools: [
-      { id: 'text', icon: Type, label: 'Text (T)' },
-      { id: 'image', icon: Image, label: 'Image (I)' },
-      { id: 'link', icon: Link2, label: 'Link' },
-    ]
-  },
-  {
-    tools: [
-      { id: 'ruler', icon: Ruler, label: 'Rulers (Shift+R)' },
-      { id: 'grid', icon: Grid3x3, label: 'Grid (Shift+G)' },
+      { id: 'speech', icon: MessageCircleMore, label: 'Speech Bubble' },
+      { id: 'storyboard', icon: LayoutGrid, label: 'Storyboard Table' },
+      { id: 'text', icon: Type, label: 'Text Box (T)' },
     ]
   },
 ]

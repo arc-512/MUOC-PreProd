@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import TileLayer from './TileLayer'
+import ObjectLayer from './ObjectLayer'
 import useStore from '../../store'
 import { TILE_SIZE } from '../../hooks/useTiledCanvas'
 
@@ -140,10 +141,14 @@ export default function InfiniteCanvas({ sheet }) {
   // ── Pointer events ───────────────────────────────────
   const handlePointerDown = useCallback((e) => {
     if (e.pointerType === 'touch' && !e.isPrimary) return
+
+    // Let Konva handle events when select or object tool is active
+    const tool = activeToolRef.current
+    if (tool === 'select' || tool === 'rect' || tool === 'speech' || tool === 'storyboard') return
+
     const rect = containerRef.current.getBoundingClientRect()
     const sx = e.clientX - rect.left
     const sy = e.clientY - rect.top
-    const tool = activeToolRef.current
     const isPanTool = tool === 'pan'
     const isDrawingTool = tool === 'pen' || tool === 'eraser'
 
@@ -171,40 +176,44 @@ export default function InfiniteCanvas({ sheet }) {
   }, [getVisibleTiles, screenToWorld])
 
   const handlePointerMove = useCallback((e) => {
-    if (e.pointerType === 'touch' && !e.isPrimary) return
-    const rect = containerRef.current.getBoundingClientRect()
-    const sx = e.clientX - rect.left
-    const sy = e.clientY - rect.top
+  if (e.pointerType === 'touch' && !e.isPrimary) return
 
-    if (isPanning.current) {
-      const dx = sx - lastPanPos.current.x
-      const dy = sy - lastPanPos.current.y
-      const newPan = {
-        x: panRef.current.x + dx,
-        y: panRef.current.y + dy,
-      }
-      panRef.current = newPan
-      setPan({ ...newPan })
-      lastPanPos.current = { x: sx, y: sy }
-      return
+  // Let Konva handle events when select or object tool is active
+  const tool = activeToolRef.current
+  if (tool === 'select' || tool === 'rect' || tool === 'speech' || tool === 'storyboard') return
+
+  const rect = containerRef.current.getBoundingClientRect()
+  const sx = e.clientX - rect.left
+  const sy = e.clientY - rect.top
+
+  if (isPanning.current) {
+    const dx = sx - lastPanPos.current.x
+    const dy = sy - lastPanPos.current.y
+    const newPan = {
+      x: panRef.current.x + dx,
+      y: panRef.current.y + dy,
     }
+    panRef.current = newPan
+    setPan({ ...newPan })
+    lastPanPos.current = { x: sx, y: sy }
+    return
+  }
 
-    if (!isDrawing.current) return
-    if (!lastWorldPos.current) return
-    const tool = activeToolRef.current
-    if (tool !== 'pen' && tool !== 'eraser') return
+  if (!isDrawing.current) return
+  if (!lastWorldPos.current) return
+  if (tool !== 'pen' && tool !== 'eraser') return
 
-    const w = screenToWorld(sx, sy)
-    tileLayerRef.current?.drawStroke(
-      lastWorldPos.current.x,
-      lastWorldPos.current.y,
-      w.x, w.y,
-      brushColorRef.current,
-      brushSizeRef.current,
-      tool === 'eraser'
-    )
-    lastWorldPos.current = w
-  }, [screenToWorld])
+  const w = screenToWorld(sx, sy)
+  tileLayerRef.current?.drawStroke(
+    lastWorldPos.current.x,
+    lastWorldPos.current.y,
+    w.x, w.y,
+    brushColorRef.current,
+    brushSizeRef.current,
+    tool === 'eraser'
+  )
+  lastWorldPos.current = w
+}, [screenToWorld])
 
   const handlePointerUp = useCallback(() => {
     isPanning.current = false
@@ -255,6 +264,15 @@ export default function InfiniteCanvas({ sheet }) {
         pan={pan}
         viewportW={viewportSize.w}
         viewportH={viewportSize.h}
+      />
+
+      {/* Object layer — sits on top of drawing */}
+      <ObjectLayer
+        zoom={zoom}
+        pan={pan}
+        viewportW={viewportSize.w}
+        viewportH={viewportSize.h}
+        sheet={sheet}
       />
 
       {/* Zoom controls */}
