@@ -378,6 +378,80 @@ saveMapDrawing: (sheetId, layerId, dataURL) => set(s => ({
   }),
 })),
 
+// ── Mindmap ────────────────────────────────────────────
+addMindmapNode: (sheetId, node) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mindmapNodes: [...(sh.mindmapNodes || []), {
+        id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        ...node,
+      }],
+    }
+  }),
+})),
+
+updateMindmapNode: (sheetId, nodeId, changes) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mindmapNodes: (sh.mindmapNodes || []).map(n =>
+        n.id !== nodeId ? n : { ...n, ...changes }
+      ),
+    }
+  }),
+})),
+
+deleteMindmapNode: (sheetId, nodeId) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mindmapNodes: (sh.mindmapNodes || []).filter(n => n.id !== nodeId),
+      mindmapEdges: (sh.mindmapEdges || []).filter(e =>
+        e.fromId !== nodeId && e.toId !== nodeId
+      ),
+    }
+  }),
+})),
+
+addMindmapEdge: (sheetId, edge) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mindmapEdges: [...(sh.mindmapEdges || []), {
+        id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        ...edge,
+      }],
+    }
+  }),
+})),
+
+updateMindmapEdge: (sheetId, edgeId, changes) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mindmapEdges: (sh.mindmapEdges || []).map(e =>
+        e.id !== edgeId ? e : { ...e, ...changes }
+      ),
+    }
+  }),
+})),
+
+deleteMindmapEdge: (sheetId, edgeId) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mindmapEdges: (sh.mindmapEdges || []).filter(e => e.id !== edgeId),
+    }
+  }),
+})),
+
   // ── Active Tool ────────────────────────────────────────
   activeTool: 'select',
   setActiveTool: (tool) => set({ activeTool: tool }),
