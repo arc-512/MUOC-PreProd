@@ -1,5 +1,5 @@
 import useStore from '../../store'
-import { MousePointer2, Move, Pen, Eraser, Square, MessageCircleMore, LayoutGrid, Type } from 'lucide-react'
+import { MousePointer2, Move, Pen, Eraser, Square, Type, StickyNote, Image as ImageIcon } from 'lucide-react'
 
 function ArrowIcon({ size = 16 }) {
   return (
@@ -34,9 +34,9 @@ const TOOL_GROUPS = [
   {
     tools: [
       { id: 'rect', icon: Square, label: 'Rectangle (R)' },
-      { id: 'speech', icon: MessageCircleMore, label: 'Speech Bubble' },
-      { id: 'storyboard', icon: LayoutGrid, label: 'Storyboard Table' },
       { id: 'text', icon: Type, label: 'Text Box (T)' },
+      { id: 'comment', icon: StickyNote, label: 'Comment Box' },
+      { id: 'image', icon: ImageIcon, label: 'Insert Image' },
     ]
   },
 ]

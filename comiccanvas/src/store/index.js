@@ -4,34 +4,45 @@ const SHEET_TYPES = {
   storyboard: {
     label: 'Storyboard',
     icon: '🎬',
-    description: 'Scene table with structured columns',
-  },
-  timeline: {
-    label: 'Timeline',
-    icon: '🕐',
-    description: 'Swimlane layout for plot threads',
+    description: '3x3 panel grid for comic sketching',
   },
   moodboard: {
     label: 'Moodboard',
     icon: '🎨',
-    description: 'Free canvas with preset heading',
+    description: 'Image collage with text and sticky notes',
   },
   brainstorm: {
     label: 'Brainstorm',
     icon: '🧠',
-    description: 'Plain infinite canvas',
+    description: 'Infinite canvas for free thinking',
   },
-  character: {
-    label: 'Character Sheet',
-    icon: '👤',
-    description: 'Character profile template',
+  timeline: {
+    label: 'Timeline',
+    icon: '🕐',
+    description: 'Periodic event board',
   },
-  location: {
-    label: 'Location Sheet',
+  map: {
+    label: 'Map / Location',
     icon: '📍',
-    description: 'Location profile template',
+    description: 'Upload a map and annotate it',
+  },
+  mindmap: {
+    label: 'Mindmap',
+    icon: '💡',
+    description: 'Flowchart and node diagrams',
   },
 }
+
+const createPanel = (pageIndex, panelIndex) => ({
+  id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+  label: `Panel ${pageIndex * 9 + panelIndex + 1}`,
+  objects: [],
+})
+
+const createPage = (pageIndex) => ({
+  id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+  panels: Array.from({ length: 9 }, (_, i) => createPanel(pageIndex, i)),
+})
 
 const createSheet = (type, name) => ({
   id: `sheet-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -44,6 +55,9 @@ const createSheet = (type, name) => ({
   activeLayer: 'layer-1',
   objects: [],
   background: null,
+  // Storyboard specific
+  pages: type === 'storyboard' ? [createPage(0)] : [],
+  activePage: 0,
 })
 
 const useStore = create((set, get) => ({
@@ -137,6 +151,134 @@ const useStore = create((set, get) => ({
   reorderLayers: (sheetId, layers) => set(s => ({
     sheets: s.sheets.map(sh => sh.id !== sheetId ? sh : { ...sh, layers }),
   })),
+
+  // ── Storyboard ─────────────────────────────────────────
+addStoryboardPage: (sheetId) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const pageIndex = sh.pages.length
+    return {
+      ...sh,
+      pages: [...sh.pages, createPage(pageIndex)],
+      activePage: pageIndex,
+    }
+  }),
+})),
+
+deleteStoryboardPage: (sheetId, pageIndex) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    if (sh.pages.length <= 1) return sh
+    const pages = sh.pages.filter((_, i) => i !== pageIndex)
+    const activePage = sh.activePage >= pages.length
+      ? pages.length - 1
+      : sh.activePage
+    return { ...sh, pages, activePage }
+  }),
+})),
+
+setStoryboardPage: (sheetId, pageIndex) => set(s => ({
+  sheets: s.sheets.map(sh =>
+    sh.id !== sheetId ? sh : { ...sh, activePage: pageIndex }
+  ),
+})),
+
+updatePanelLabel: (sheetId, pageIndex, panelId, label) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const pages = sh.pages.map((pg, pi) => {
+      if (pi !== pageIndex) return pg
+      return {
+        ...pg,
+        panels: pg.panels.map(p =>
+          p.id !== panelId ? p : { ...p, label }
+        ),
+      }
+    })
+    return { ...sh, pages }
+  }),
+})),
+
+addPanelObject: (sheetId, pageIndex, panelId, object) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const pages = sh.pages.map((pg, pi) => {
+      if (pi !== pageIndex) return pg
+      return {
+        ...pg,
+        panels: pg.panels.map(p => {
+          if (p.id !== panelId) return p
+          return {
+            ...p,
+            objects: [...p.objects, {
+              id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+              ...object,
+            }],
+          }
+        }),
+      }
+    })
+    return { ...sh, pages }
+  }),
+})),
+
+updatePanelObject: (sheetId, pageIndex, panelId, objectId, changes) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const pages = sh.pages.map((pg, pi) => {
+      if (pi !== pageIndex) return pg
+      return {
+        ...pg,
+        panels: pg.panels.map(p => {
+          if (p.id !== panelId) return p
+          return {
+            ...p,
+            objects: p.objects.map(o =>
+              o.id !== objectId ? o : { ...o, ...changes }
+            ),
+          }
+        }),
+      }
+    })
+    return { ...sh, pages }
+  }),
+})),
+
+deletePanelObject: (sheetId, pageIndex, panelId, objectId) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const pages = sh.pages.map((pg, pi) => {
+      if (pi !== pageIndex) return pg
+      return {
+        ...pg,
+        panels: pg.panels.map(p => {
+          if (p.id !== panelId) return p
+          return {
+            ...p,
+            objects: p.objects.filter(o => o.id !== objectId),
+          }
+        }),
+      }
+    })
+    return { ...sh, pages }
+  }),
+})),
+
+savePanelDrawing: (sheetId, pageIndex, panelId, dataURL) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const pages = sh.pages.map((pg, pi) => {
+      if (pi !== pageIndex) return pg
+      return {
+        ...pg,
+        panels: pg.panels.map(p =>
+          p.id !== panelId ? p : { ...p, drawing: dataURL }
+        ),
+      }
+    })
+    return { ...sh, pages }
+  }),
+})),
 
   // ── Active Tool ────────────────────────────────────────
   activeTool: 'select',
