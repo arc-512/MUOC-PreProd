@@ -760,3 +760,12 @@ input, textarea {
 .layer-item:hover .layer-delete-btn {
   opacity: 1;
 }
+
+.img-delete-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+*:hover > .img-delete-btn {
+  opacity: 1 !important;
+}
