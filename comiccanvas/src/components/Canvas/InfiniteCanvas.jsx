@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import TileLayer from './TileLayer'
+import TileLayer, { restoreTilesFromData, serializeTiles } from './TileLayer'
 import ObjectLayer from './ObjectLayer'
 import useStore from '../../store'
 import { TILE_SIZE } from '../../hooks/useTiledCanvas'
@@ -21,6 +21,7 @@ export default function InfiniteCanvas({ sheet }) {
   const activeTool = useStore(s => s.activeTool)
   const brushColor = useStore(s => s.brushColor)
   const brushSize = useStore(s => s.brushSize)
+  const saveBrainstormTiles = useStore(s => s.saveBrainstormTiles)
   const activeToolRef = useRef(activeTool)
   const brushColorRef = useRef(brushColor)
   const brushSizeRef = useRef(brushSize)
@@ -33,6 +34,25 @@ export default function InfiniteCanvas({ sheet }) {
   const isDrawing = useRef(false)
   const lastWorldPos = useRef(null)
   const undoStack = useRef([])
+
+  // Restore tiles from GitHub-loaded data when sheet first mounts
+  useEffect(() => {
+    if (sheet.brainstormTiles) {
+      restoreTilesFromData(sheet.id, sheet.brainstormTiles)
+      // Trigger render after tiles are restored
+      setTimeout(() => tileLayerRef.current?.render(), 100)
+    }
+  }, [sheet.id, sheet.brainstormTiles])
+
+  // Save tiles to store on unmount so GitHub save picks them up
+  useEffect(() => {
+    return () => {
+      const tiles = serializeTiles(sheet.id)
+      if (Object.keys(tiles).length > 0) {
+        saveBrainstormTiles(sheet.id, tiles)
+      }
+    }
+  }, [sheet.id])
 
   // ── Helpers ──────────────────────────────────────────
   const updateZoomPan = useCallback((newZoom, newPan) => {
@@ -88,7 +108,6 @@ export default function InfiniteCanvas({ sheet }) {
     const h = container.clientHeight
     viewportRef.current = { w, h }
     setViewportSize({ w, h })
-    // Set initial zoom to fit viewport
     const fitZoom = Math.min(w, h) / (TILE_SIZE * 4)
     updateZoomPan(fitZoom, { x: w / 2 - (TILE_SIZE * 4 * fitZoom) / 2, y: h / 2 - (TILE_SIZE * 4 * fitZoom) / 2 })
     return () => observer.disconnect()
@@ -118,6 +137,7 @@ export default function InfiniteCanvas({ sheet }) {
   // ── Keyboard shortcuts ───────────────────────────────
   useEffect(() => {
     const handleKey = (e) => {
+      console.log('key', e.key, 'ctrl', e.ctrlKey, 'stack', undoStack.current.length)
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault()
@@ -142,7 +162,6 @@ export default function InfiniteCanvas({ sheet }) {
   const handlePointerDown = useCallback((e) => {
     if (e.pointerType === 'touch' && !e.isPrimary) return
 
-    // Let Konva handle events when select or object tool is active
     const tool = activeToolRef.current
     if (tool === 'select' || tool === 'rect' || tool === 'speech' || tool === 'storyboard') return
 
@@ -161,59 +180,65 @@ export default function InfiniteCanvas({ sheet }) {
     if (isDrawingTool) {
       e.currentTarget.setPointerCapture(e.pointerId)
       isDrawing.current = true
-      tileLayerRef.current?.saveSnapshot(visibleTiles)
+
+      // Snapshot a generous area around the pointer, not just visible tiles
+      const w = screenToWorld(sx, sy)
+      const radius = 10 // tiles in each direction
+      const snapTiles = []
+      const centerTX = Math.floor(w.x / TILE_SIZE)
+      const centerTY = Math.floor(w.y / TILE_SIZE)
+      for (let tx = centerTX - radius; tx <= centerTX + radius; tx++) {
+        for (let ty = centerTY - radius; ty <= centerTY + radius; ty++) {
+          snapTiles.push({ tx, ty })
+        }
+      }
+      tileLayerRef.current?.saveSnapshot(snapTiles)
       undoStack.current.push(true)
       if (undoStack.current.length > 3) undoStack.current.shift()
-      const w = screenToWorld(sx, sy)
+
       lastWorldPos.current = w
-      tileLayerRef.current?.drawDot(
-        w.x, w.y,
-        brushColorRef.current,
-        brushSizeRef.current,
-        tool === 'eraser'
-      )
+      tileLayerRef.current?.drawDot(w.x, w.y, brushColorRef.current, brushSizeRef.current, tool === 'eraser')
     }
   }, [getVisibleTiles, screenToWorld])
 
   const handlePointerMove = useCallback((e) => {
-  if (e.pointerType === 'touch' && !e.isPrimary) return
+    if (e.pointerType === 'touch' && !e.isPrimary) return
 
-  // Let Konva handle events when select or object tool is active
-  const tool = activeToolRef.current
-  if (tool === 'select' || tool === 'rect' || tool === 'speech' || tool === 'storyboard') return
+    const tool = activeToolRef.current
+    if (tool === 'select' || tool === 'rect' || tool === 'speech' || tool === 'storyboard') return
 
-  const rect = containerRef.current.getBoundingClientRect()
-  const sx = e.clientX - rect.left
-  const sy = e.clientY - rect.top
+    const rect = containerRef.current.getBoundingClientRect()
+    const sx = e.clientX - rect.left
+    const sy = e.clientY - rect.top
 
-  if (isPanning.current) {
-    const dx = sx - lastPanPos.current.x
-    const dy = sy - lastPanPos.current.y
-    const newPan = {
-      x: panRef.current.x + dx,
-      y: panRef.current.y + dy,
+    if (isPanning.current) {
+      const dx = sx - lastPanPos.current.x
+      const dy = sy - lastPanPos.current.y
+      const newPan = {
+        x: panRef.current.x + dx,
+        y: panRef.current.y + dy,
+      }
+      panRef.current = newPan
+      setPan({ ...newPan })
+      lastPanPos.current = { x: sx, y: sy }
+      return
     }
-    panRef.current = newPan
-    setPan({ ...newPan })
-    lastPanPos.current = { x: sx, y: sy }
-    return
-  }
 
-  if (!isDrawing.current) return
-  if (!lastWorldPos.current) return
-  if (tool !== 'pen' && tool !== 'eraser') return
+    if (!isDrawing.current) return
+    if (!lastWorldPos.current) return
+    if (tool !== 'pen' && tool !== 'eraser') return
 
-  const w = screenToWorld(sx, sy)
-  tileLayerRef.current?.drawStroke(
-    lastWorldPos.current.x,
-    lastWorldPos.current.y,
-    w.x, w.y,
-    brushColorRef.current,
-    brushSizeRef.current,
-    tool === 'eraser'
-  )
-  lastWorldPos.current = w
-}, [screenToWorld])
+    const w = screenToWorld(sx, sy)
+    tileLayerRef.current?.drawStroke(
+      lastWorldPos.current.x,
+      lastWorldPos.current.y,
+      w.x, w.y,
+      brushColorRef.current,
+      brushSizeRef.current,
+      tool === 'eraser'
+    )
+    lastWorldPos.current = w
+  }, [screenToWorld])
 
   const handlePointerUp = useCallback(() => {
     isPanning.current = false
@@ -227,8 +252,6 @@ export default function InfiniteCanvas({ sheet }) {
     if (activeTool === 'eraser') return 'cell'
     return 'default'
   }
-
-  const visibleTiles = getVisibleTiles()
 
   return (
     <div
@@ -260,13 +283,14 @@ export default function InfiniteCanvas({ sheet }) {
       {/* Tile layer */}
       <TileLayer
         ref={tileLayerRef}
+        sheetId={sheet.id}
         zoom={zoom}
         pan={pan}
         viewportW={viewportSize.w}
         viewportH={viewportSize.h}
       />
 
-      {/* Object layer — sits on top of drawing */}
+      {/* Object layer */}
       <ObjectLayer
         zoom={zoom}
         pan={pan}

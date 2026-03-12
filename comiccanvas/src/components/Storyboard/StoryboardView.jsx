@@ -202,7 +202,7 @@ export default function StoryboardView({ sheet }) {
               pageIndex={activePage}
               sheet={sheet}
               isFocused={true}
-              onFocus={() => {}}
+              onFocus={() => { }}
             />
           </div>
         ) : (

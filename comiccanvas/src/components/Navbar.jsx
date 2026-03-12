@@ -1,21 +1,33 @@
-import { Sun, Moon, Settings, GitBranch, Save, Download } from 'lucide-react'
+import { Sun, Moon, Settings, GitBranch, FolderOpen, Loader } from 'lucide-react'
 import useStore from '../store'
+import { useGithubSync } from '../github/useGithubSync'
 
 export default function Navbar() {
   const theme = useStore(s => s.theme)
   const toggleTheme = useStore(s => s.toggleTheme)
   const openModal = useStore(s => s.openModal)
-  const syncStatus = useStore(s => s.syncStatus)
-  const syncMessage = useStore(s => s.syncMessage)
-  const lastSynced = useStore(s => s.lastSynced)
+  const githubStatus = useStore(s => s.githubStatus)
+  const githubError = useStore(s => s.githubError)
 
-  const syncLabel = {
-    idle: lastSynced ? `Saved ${formatTime(lastSynced)}` : 'Not saved',
-    syncing: 'Saving...',
-    success: 'Saved to GitHub',
-    error: syncMessage || 'Save failed',
-    notify: syncMessage || 'New changes available',
-  }[syncStatus] || ''
+  const { save, load, isConfigured } = useGithubSync()
+
+  const statusLabel = {
+    idle: isConfigured ? 'GitHub connected' : 'GitHub not configured',
+    saving: 'Saving...',
+    loading: 'Loading...',
+    success: 'Saved ✓',
+    error: githubError || 'Error',
+  }[githubStatus] || ''
+
+  const statusColor = {
+    idle: isConfigured ? 'var(--text-muted)' : '#f0c040',
+    saving: 'var(--accent)',
+    loading: 'var(--accent)',
+    success: '#4caf50',
+    error: '#e8462a',
+  }[githubStatus] || 'var(--text-muted)'
+
+  const isBusy = githubStatus === 'saving' || githubStatus === 'loading'
 
   return (
     <nav className="app-navbar">
@@ -29,38 +41,41 @@ export default function Navbar() {
 
       <div className="navbar-spacer" />
 
-      {/* Sync status */}
-      <div className={`navbar-sync-status ${syncStatus}`}>
-        <span className={`sync-dot ${syncStatus === 'syncing' ? 'pulse' : ''}`} />
-        {syncLabel}
+      {/* Status */}
+      <div style={{
+        fontSize: 11,
+        color: statusColor,
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '0 8px',
+      }}>
+        {isBusy && (
+          <Loader size={11} style={{ animation: 'spin 1s linear infinite' }} />
+        )}
+        {statusLabel}
       </div>
 
-      {/* Save local */}
-      <button
-        className="navbar-btn"
-        title="Save locally"
-        onClick={() => openModal('saveLocal')}
-      >
-        <Save size={14} />
-        Save Local
-      </button>
-
-      {/* Commit & Push */}
+      {/* Save to GitHub */}
       <button
         className="navbar-btn primary"
-        onClick={() => openModal('commit')}
+        title={isConfigured ? 'Save to GitHub' : 'Configure GitHub in Settings first'}
+        onClick={save}
+        disabled={isBusy}
+        style={{ opacity: isBusy ? 0.6 : 1 }}
       >
         <GitBranch size={14} />
-        Commit & Push
+        Save
       </button>
 
-      {/* Export */}
+      {/* Load from GitHub */}
       <button
-        className="navbar-btn icon-only"
-        title="Export"
-        onClick={() => openModal('export')}
+        className="navbar-btn"
+        title={isConfigured ? 'Load from GitHub' : 'Configure GitHub in Settings first'}
+        onClick={load}
+        disabled={isBusy}
+        style={{ opacity: isBusy ? 0.6 : 1 }}
       >
-        <Download size={15} />
+        <FolderOpen size={14} />
+        Load
       </button>
 
       {/* Theme toggle */}
@@ -82,11 +97,4 @@ export default function Navbar() {
       </button>
     </nav>
   )
-}
-
-function formatTime(ts) {
-  const diff = Date.now() - ts
-  if (diff < 60000) return 'just now'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
-  return `${Math.floor(diff / 3600000)}h ago`
 }

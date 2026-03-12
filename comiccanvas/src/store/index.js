@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { clearSheetTiles } from './tileStore'
 
 const SHEET_TYPES = {
   storyboard: {
@@ -55,7 +56,6 @@ const createSheet = (type, name) => ({
   activeLayer: 'layer-1',
   objects: [],
   background: null,
-  // Storyboard specific
   pages: type === 'storyboard' ? [createPage(0)] : [],
   activePage: 0,
 })
@@ -69,12 +69,49 @@ const useStore = create((set, get) => ({
     return { theme: next }
   }),
 
+  // ── GitHub ─────────────────────────────────────────────
+  githubPAT: localStorage.getItem('cc-github-pat') || '',
+  githubRepo: localStorage.getItem('cc-github-repo') || '',
+  githubOwner: localStorage.getItem('cc-github-owner') || '',
+  githubBranch: localStorage.getItem('cc-github-branch') || 'canvas',
+  githubStatus: 'idle',
+  githubError: null,
+
+  setGithubConfig: ({ pat, repo, owner }) => {
+    if (pat !== undefined) localStorage.setItem('cc-github-pat', pat)
+    if (repo !== undefined) localStorage.setItem('cc-github-repo', repo)
+    if (owner !== undefined) localStorage.setItem('cc-github-owner', owner)
+    localStorage.setItem('cc-github-branch', 'canvas')
+    set(s => ({
+      githubPAT: pat ?? s.githubPAT,
+      githubRepo: repo ?? s.githubRepo,
+      githubOwner: owner ?? s.githubOwner,
+      githubBranch: 'canvas',
+    }))
+  },
+  clearGithubConfig: () => {
+    localStorage.removeItem('cc-github-pat')
+    localStorage.removeItem('cc-github-repo')
+    localStorage.removeItem('cc-github-owner')
+    localStorage.removeItem('cc-github-branch')
+    set({ githubPAT: '', githubRepo: '', githubOwner: '' })
+  },
+  setGithubStatus: (status, error = null) => set({ githubStatus: status, githubError: error }),
+
+  loadSheets: (sheets) => {
+    const cur = get()
+    const keepId = sheets.find(sh => sh.id === cur.activeSheetId)?.id || sheets[0]?.id || null
+    const curPage = cur.sheets.find(sh => sh.id === keepId)?.activePage ?? 0
+    const merged = sheets.map(sh =>
+      sh.id === keepId ? { ...sh, activePage: curPage } : sh
+    )
+    // Clear in-memory tile store for all loaded sheets so GitHub tile data is used
+    clearSheetTiles(sheets.map(s => s.id))
+    set({ sheets: merged, activeSheetId: keepId })
+  },
+
   // ── Sheets ─────────────────────────────────────────────
-  sheets: [
-    createSheet('storyboard', 'Storyboard'),
-    createSheet('timeline', 'Timeline'),
-    createSheet('brainstorm', 'Brainstorm'),
-  ],
+  sheets: [],
   activeSheetId: null,
 
   setActiveSheet: (id) => set({ activeSheetId: id }),
@@ -153,304 +190,292 @@ const useStore = create((set, get) => ({
   })),
 
   // ── Storyboard ─────────────────────────────────────────
-addStoryboardPage: (sheetId) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const pageIndex = sh.pages.length
-    return {
-      ...sh,
-      pages: [...sh.pages, createPage(pageIndex)],
-      activePage: pageIndex,
-    }
-  }),
-})),
-
-deleteStoryboardPage: (sheetId, pageIndex) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    if (sh.pages.length <= 1) return sh
-    const pages = sh.pages.filter((_, i) => i !== pageIndex)
-    const activePage = sh.activePage >= pages.length
-      ? pages.length - 1
-      : sh.activePage
-    return { ...sh, pages, activePage }
-  }),
-})),
-
-setStoryboardPage: (sheetId, pageIndex) => set(s => ({
-  sheets: s.sheets.map(sh =>
-    sh.id !== sheetId ? sh : { ...sh, activePage: pageIndex }
-  ),
-})),
-
-updatePanelLabel: (sheetId, pageIndex, panelId, label) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const pages = sh.pages.map((pg, pi) => {
-      if (pi !== pageIndex) return pg
+  addStoryboardPage: (sheetId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      const pageIndex = sh.pages.length
       return {
-        ...pg,
-        panels: pg.panels.map(p =>
-          p.id !== panelId ? p : { ...p, label }
-        ),
+        ...sh,
+        pages: [...sh.pages, createPage(pageIndex)],
+        activePage: pageIndex,
       }
-    })
-    return { ...sh, pages }
-  }),
-})),
+    }),
+  })),
 
-addPanelObject: (sheetId, pageIndex, panelId, object) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const pages = sh.pages.map((pg, pi) => {
-      if (pi !== pageIndex) return pg
+  deleteStoryboardPage: (sheetId, pageIndex) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      if (sh.pages.length <= 1) return sh
+      const pages = sh.pages.filter((_, i) => i !== pageIndex)
+      const activePage = sh.activePage >= pages.length ? pages.length - 1 : sh.activePage
+      return { ...sh, pages, activePage }
+    }),
+  })),
+
+  setStoryboardPage: (sheetId, pageIndex) => set(s => ({
+    sheets: s.sheets.map(sh =>
+      sh.id !== sheetId ? sh : { ...sh, activePage: pageIndex }
+    ),
+  })),
+
+  updatePanelLabel: (sheetId, pageIndex, panelId, label) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
       return {
-        ...pg,
-        panels: pg.panels.map(p => {
-          if (p.id !== panelId) return p
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : { ...p, label }),
+        }),
+      }
+    }),
+  })),
+
+  addPanelObject: (sheetId, pageIndex, panelId, object) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => {
+            if (p.id !== panelId) return p
+            return {
+              ...p,
+              objects: [...p.objects, {
+                id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+                ...object,
+              }],
+            }
+          }),
+        }),
+      }
+    }),
+  })),
+
+  updatePanelObject: (sheetId, pageIndex, panelId, objectId, changes) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => {
+            if (p.id !== panelId) return p
+            return {
+              ...p,
+              objects: p.objects.map(o => o.id !== objectId ? o : { ...o, ...changes }),
+            }
+          }),
+        }),
+      }
+    }),
+  })),
+
+  deletePanelObject: (sheetId, pageIndex, panelId, objectId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => {
+            if (p.id !== panelId) return p
+            return { ...p, objects: p.objects.filter(o => o.id !== objectId) }
+          }),
+        }),
+      }
+    }),
+  })),
+
+  savePanelDrawing: (sheetId, pageIndex, panelId, dataURL) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : { ...p, drawing: dataURL }),
+        }),
+      }
+    }),
+  })),
+
+  // ── Brainstorm ─────────────────────────────────────────
+  saveBrainstormTiles: (sheetId, tiles) => set(s => ({
+    sheets: s.sheets.map(sh =>
+      sh.id !== sheetId ? sh : { ...sh, brainstormTiles: tiles }
+    ),
+  })),
+
+  // ── Map ────────────────────────────────────────────────
+  addMapLayer: (sheetId, src) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      const newLayer = {
+        id: `maplayer-${Date.now()}`,
+        name: `Map ${(sh.mapLayers || []).length + 1}`,
+        src,
+        visible: true,
+        drawing: null,
+        pins: [],
+      }
+      return {
+        ...sh,
+        mapLayers: [...(sh.mapLayers || []), newLayer],
+        activeMapLayer: newLayer.id,
+      }
+    }),
+  })),
+
+  setActiveMapLayer: (sheetId, layerId) => set(s => ({
+    sheets: s.sheets.map(sh =>
+      sh.id !== sheetId ? sh : { ...sh, activeMapLayer: layerId }
+    ),
+  })),
+
+  deleteMapLayer: (sheetId, layerId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      const mapLayers = (sh.mapLayers || []).filter(l => l.id !== layerId)
+      return {
+        ...sh,
+        mapLayers,
+        activeMapLayer: mapLayers.length > 0 ? mapLayers[mapLayers.length - 1].id : null,
+      }
+    }),
+  })),
+
+  addMapPin: (sheetId, layerId, pin) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mapLayers: (sh.mapLayers || []).map(l => {
+          if (l.id !== layerId) return l
           return {
-            ...p,
-            objects: [...p.objects, {
-              id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-              ...object,
+            ...l,
+            pins: [...l.pins, {
+              id: `pin-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+              ...pin,
             }],
           }
         }),
       }
-    })
-    return { ...sh, pages }
-  }),
-})),
+    }),
+  })),
 
-updatePanelObject: (sheetId, pageIndex, panelId, objectId, changes) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const pages = sh.pages.map((pg, pi) => {
-      if (pi !== pageIndex) return pg
+  updateMapPin: (sheetId, layerId, pinId, changes) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
       return {
-        ...pg,
-        panels: pg.panels.map(p => {
-          if (p.id !== panelId) return p
-          return {
-            ...p,
-            objects: p.objects.map(o =>
-              o.id !== objectId ? o : { ...o, ...changes }
-            ),
-          }
+        ...sh,
+        mapLayers: (sh.mapLayers || []).map(l => {
+          if (l.id !== layerId) return l
+          return { ...l, pins: l.pins.map(p => p.id !== pinId ? p : { ...p, ...changes }) }
         }),
       }
-    })
-    return { ...sh, pages }
-  }),
-})),
+    }),
+  })),
 
-deletePanelObject: (sheetId, pageIndex, panelId, objectId) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const pages = sh.pages.map((pg, pi) => {
-      if (pi !== pageIndex) return pg
+  deleteMapPin: (sheetId, layerId, pinId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
       return {
-        ...pg,
-        panels: pg.panels.map(p => {
-          if (p.id !== panelId) return p
-          return {
-            ...p,
-            objects: p.objects.filter(o => o.id !== objectId),
-          }
+        ...sh,
+        mapLayers: (sh.mapLayers || []).map(l => {
+          if (l.id !== layerId) return l
+          return { ...l, pins: l.pins.filter(p => p.id !== pinId) }
         }),
       }
-    })
-    return { ...sh, pages }
-  }),
-})),
+    }),
+  })),
 
-savePanelDrawing: (sheetId, pageIndex, panelId, dataURL) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const pages = sh.pages.map((pg, pi) => {
-      if (pi !== pageIndex) return pg
+  saveMapDrawing: (sheetId, layerId, dataURL) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
       return {
-        ...pg,
-        panels: pg.panels.map(p =>
-          p.id !== panelId ? p : { ...p, drawing: dataURL }
+        ...sh,
+        mapLayers: (sh.mapLayers || []).map(l =>
+          l.id !== layerId ? l : { ...l, drawing: dataURL }
         ),
       }
-    })
-    return { ...sh, pages }
-  }),
-})),
+    }),
+  })),
 
-// ── Map ────────────────────────────────────────────────
-addMapLayer: (sheetId, src) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const newLayer = {
-      id: `maplayer-${Date.now()}`,
-      name: `Map ${(sh.mapLayers || []).length + 1}`,
-      src,
-      visible: true,
-      drawing: null,
-      pins: [],
-    }
-    return {
-      ...sh,
-      mapLayers: [...(sh.mapLayers || []), newLayer],
-      activeMapLayer: newLayer.id,
-    }
-  }),
-})),
+  // ── Mindmap ────────────────────────────────────────────
+  addMindmapNode: (sheetId, node) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mindmapNodes: [...(sh.mindmapNodes || []), {
+          id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          ...node,
+        }],
+      }
+    }),
+  })),
 
-setActiveMapLayer: (sheetId, layerId) => set(s => ({
-  sheets: s.sheets.map(sh =>
-    sh.id !== sheetId ? sh : { ...sh, activeMapLayer: layerId }
-  ),
-})),
+  updateMindmapNode: (sheetId, nodeId, changes) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mindmapNodes: (sh.mindmapNodes || []).map(n =>
+          n.id !== nodeId ? n : { ...n, ...changes }
+        ),
+      }
+    }),
+  })),
 
-deleteMapLayer: (sheetId, layerId) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    const mapLayers = (sh.mapLayers || []).filter(l => l.id !== layerId)
-    return {
-      ...sh,
-      mapLayers,
-      activeMapLayer: mapLayers.length > 0 ? mapLayers[mapLayers.length - 1].id : null,
-    }
-  }),
-})),
+  deleteMindmapNode: (sheetId, nodeId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mindmapNodes: (sh.mindmapNodes || []).filter(n => n.id !== nodeId),
+        mindmapEdges: (sh.mindmapEdges || []).filter(e =>
+          e.fromId !== nodeId && e.toId !== nodeId
+        ),
+      }
+    }),
+  })),
 
-addMapPin: (sheetId, layerId, pin) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mapLayers: (sh.mapLayers || []).map(l => {
-        if (l.id !== layerId) return l
-        return {
-          ...l,
-          pins: [...l.pins, {
-            id: `pin-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-            ...pin,
-          }],
-        }
-      }),
-    }
-  }),
-})),
+  addMindmapEdge: (sheetId, edge) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mindmapEdges: [...(sh.mindmapEdges || []), {
+          id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          ...edge,
+        }],
+      }
+    }),
+  })),
 
-updateMapPin: (sheetId, layerId, pinId, changes) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mapLayers: (sh.mapLayers || []).map(l => {
-        if (l.id !== layerId) return l
-        return {
-          ...l,
-          pins: l.pins.map(p => p.id !== pinId ? p : { ...p, ...changes }),
-        }
-      }),
-    }
-  }),
-})),
+  updateMindmapEdge: (sheetId, edgeId, changes) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mindmapEdges: (sh.mindmapEdges || []).map(e =>
+          e.id !== edgeId ? e : { ...e, ...changes }
+        ),
+      }
+    }),
+  })),
 
-deleteMapPin: (sheetId, layerId, pinId) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mapLayers: (sh.mapLayers || []).map(l => {
-        if (l.id !== layerId) return l
-        return { ...l, pins: l.pins.filter(p => p.id !== pinId) }
-      }),
-    }
-  }),
-})),
-
-saveMapDrawing: (sheetId, layerId, dataURL) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mapLayers: (sh.mapLayers || []).map(l =>
-        l.id !== layerId ? l : { ...l, drawing: dataURL }
-      ),
-    }
-  }),
-})),
-
-// ── Mindmap ────────────────────────────────────────────
-addMindmapNode: (sheetId, node) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mindmapNodes: [...(sh.mindmapNodes || []), {
-        id: `node-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-        ...node,
-      }],
-    }
-  }),
-})),
-
-updateMindmapNode: (sheetId, nodeId, changes) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mindmapNodes: (sh.mindmapNodes || []).map(n =>
-        n.id !== nodeId ? n : { ...n, ...changes }
-      ),
-    }
-  }),
-})),
-
-deleteMindmapNode: (sheetId, nodeId) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mindmapNodes: (sh.mindmapNodes || []).filter(n => n.id !== nodeId),
-      mindmapEdges: (sh.mindmapEdges || []).filter(e =>
-        e.fromId !== nodeId && e.toId !== nodeId
-      ),
-    }
-  }),
-})),
-
-addMindmapEdge: (sheetId, edge) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mindmapEdges: [...(sh.mindmapEdges || []), {
-        id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-        ...edge,
-      }],
-    }
-  }),
-})),
-
-updateMindmapEdge: (sheetId, edgeId, changes) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mindmapEdges: (sh.mindmapEdges || []).map(e =>
-        e.id !== edgeId ? e : { ...e, ...changes }
-      ),
-    }
-  }),
-})),
-
-deleteMindmapEdge: (sheetId, edgeId) => set(s => ({
-  sheets: s.sheets.map(sh => {
-    if (sh.id !== sheetId) return sh
-    return {
-      ...sh,
-      mindmapEdges: (sh.mindmapEdges || []).filter(e => e.id !== edgeId),
-    }
-  }),
-})),
+  deleteMindmapEdge: (sheetId, edgeId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        mindmapEdges: (sh.mindmapEdges || []).filter(e => e.id !== edgeId),
+      }
+    }),
+  })),
 
   // ── Active Tool ────────────────────────────────────────
   activeTool: 'select',
@@ -463,27 +488,6 @@ deleteMindmapEdge: (sheetId, edgeId) => set(s => ({
   setBrushColor: (brushColor) => set({ brushColor }),
   setBrushSize: (brushSize) => set({ brushSize }),
   setBrushOpacity: (brushOpacity) => set({ brushOpacity }),
-
-  // ── GitHub Settings ────────────────────────────────────
-  githubPAT: localStorage.getItem('cc-github-pat') || '',
-  githubRepo: localStorage.getItem('cc-github-repo') || '',
-  githubOwner: localStorage.getItem('cc-github-owner') || '',
-  setGithubConfig: ({ pat, repo, owner }) => {
-    if (pat !== undefined) localStorage.setItem('cc-github-pat', pat)
-    if (repo !== undefined) localStorage.setItem('cc-github-repo', repo)
-    if (owner !== undefined) localStorage.setItem('cc-github-owner', owner)
-    set(s => ({
-      githubPAT: pat ?? s.githubPAT,
-      githubRepo: repo ?? s.githubRepo,
-      githubOwner: owner ?? s.githubOwner,
-    }))
-  },
-  clearGithubConfig: () => {
-    localStorage.removeItem('cc-github-pat')
-    localStorage.removeItem('cc-github-repo')
-    localStorage.removeItem('cc-github-owner')
-    set({ githubPAT: '', githubRepo: '', githubOwner: '' })
-  },
 
   // ── Modals ─────────────────────────────────────────────
   activeModal: null,
