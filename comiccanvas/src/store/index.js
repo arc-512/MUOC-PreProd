@@ -280,6 +280,104 @@ savePanelDrawing: (sheetId, pageIndex, panelId, dataURL) => set(s => ({
   }),
 })),
 
+// ── Map ────────────────────────────────────────────────
+addMapLayer: (sheetId, src) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const newLayer = {
+      id: `maplayer-${Date.now()}`,
+      name: `Map ${(sh.mapLayers || []).length + 1}`,
+      src,
+      visible: true,
+      drawing: null,
+      pins: [],
+    }
+    return {
+      ...sh,
+      mapLayers: [...(sh.mapLayers || []), newLayer],
+      activeMapLayer: newLayer.id,
+    }
+  }),
+})),
+
+setActiveMapLayer: (sheetId, layerId) => set(s => ({
+  sheets: s.sheets.map(sh =>
+    sh.id !== sheetId ? sh : { ...sh, activeMapLayer: layerId }
+  ),
+})),
+
+deleteMapLayer: (sheetId, layerId) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    const mapLayers = (sh.mapLayers || []).filter(l => l.id !== layerId)
+    return {
+      ...sh,
+      mapLayers,
+      activeMapLayer: mapLayers.length > 0 ? mapLayers[mapLayers.length - 1].id : null,
+    }
+  }),
+})),
+
+addMapPin: (sheetId, layerId, pin) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mapLayers: (sh.mapLayers || []).map(l => {
+        if (l.id !== layerId) return l
+        return {
+          ...l,
+          pins: [...l.pins, {
+            id: `pin-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            ...pin,
+          }],
+        }
+      }),
+    }
+  }),
+})),
+
+updateMapPin: (sheetId, layerId, pinId, changes) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mapLayers: (sh.mapLayers || []).map(l => {
+        if (l.id !== layerId) return l
+        return {
+          ...l,
+          pins: l.pins.map(p => p.id !== pinId ? p : { ...p, ...changes }),
+        }
+      }),
+    }
+  }),
+})),
+
+deleteMapPin: (sheetId, layerId, pinId) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mapLayers: (sh.mapLayers || []).map(l => {
+        if (l.id !== layerId) return l
+        return { ...l, pins: l.pins.filter(p => p.id !== pinId) }
+      }),
+    }
+  }),
+})),
+
+saveMapDrawing: (sheetId, layerId, dataURL) => set(s => ({
+  sheets: s.sheets.map(sh => {
+    if (sh.id !== sheetId) return sh
+    return {
+      ...sh,
+      mapLayers: (sh.mapLayers || []).map(l =>
+        l.id !== layerId ? l : { ...l, drawing: dataURL }
+      ),
+    }
+  }),
+})),
+
   // ── Active Tool ────────────────────────────────────────
   activeTool: 'select',
   setActiveTool: (tool) => set({ activeTool: tool }),
