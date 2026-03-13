@@ -1,18 +1,30 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
 import useStore from '../../store'
 import StoryboardPanel from './StoryboardPanel'
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
+
+function formatCreatedAt(ts) {
+  if (!ts) return null
+  const d = new Date(ts)
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
 
 export default function StoryboardView({ sheet }) {
   const addStoryboardPage = useStore(s => s.addStoryboardPage)
   const deleteStoryboardPage = useStore(s => s.deleteStoryboardPage)
   const setStoryboardPage = useStore(s => s.setStoryboardPage)
+  const focusedPanelId = useStore(s => s.focusedPanelId)
+  const setFocusedPanelId = useStore(s => s.setFocusedPanelId)
 
   const pages = sheet.pages || []
   const activePage = sheet.activePage || 0
   const page = pages[activePage]
 
-  const [focusedPanelId, setFocusedPanelId] = useState(null)
+  // Clear focus on mount and on sheet switch
+  useEffect(() => {
+    setFocusedPanelId(null)
+    return () => setFocusedPanelId(null)
+  }, [sheet.id])
 
   // Esc to exit focus mode
   useEffect(() => {
@@ -46,9 +58,12 @@ export default function StoryboardView({ sheet }) {
     </div>
   )
 
+  // Guard: if focusedPanelId doesn't match any panel on this page, treat as null
   const focusedPanel = focusedPanelId
-    ? page.panels.find(p => p.id === focusedPanelId)
+    ? (page.panels.find(p => p.id === focusedPanelId) || null)
     : null
+
+  const createdLabel = formatCreatedAt(sheet.createdAt)
 
   return (
     <div style={{
@@ -71,7 +86,6 @@ export default function StoryboardView({ sheet }) {
         flexShrink: 0,
         zIndex: 30,
       }}>
-        {/* Page navigation */}
         <button
           onClick={() => setStoryboardPage(sheet.id, Math.max(0, activePage - 1))}
           disabled={activePage === 0}
@@ -81,19 +95,13 @@ export default function StoryboardView({ sheet }) {
             color: activePage === 0 ? 'var(--text-muted)' : 'var(--text-secondary)',
             borderRadius: 'var(--radius-sm)',
             cursor: activePage === 0 ? 'default' : 'pointer',
-            background: 'transparent',
-            border: 'none',
+            background: 'transparent', border: 'none',
           }}
         >
           <ChevronLeft size={16} />
         </button>
 
-        <span style={{
-          fontSize: 12,
-          color: 'var(--text-secondary)',
-          minWidth: 80,
-          textAlign: 'center',
-        }}>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 80, textAlign: 'center' }}>
           Page {activePage + 1} of {pages.length}
         </span>
 
@@ -106,8 +114,7 @@ export default function StoryboardView({ sheet }) {
             color: activePage === pages.length - 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
             borderRadius: 'var(--radius-sm)',
             cursor: activePage === pages.length - 1 ? 'default' : 'pointer',
-            background: 'transparent',
-            border: 'none',
+            background: 'transparent', border: 'none',
           }}
         >
           <ChevronRight size={16} />
@@ -115,51 +122,36 @@ export default function StoryboardView({ sheet }) {
 
         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
-        {/* Add page */}
         <button
           onClick={() => addStoryboardPage(sheet.id)}
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 10px',
-            background: 'var(--accent)',
-            color: 'white',
-            border: 'none',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 12,
-            cursor: 'pointer',
+            background: 'var(--accent)', color: 'white',
+            border: 'none', borderRadius: 'var(--radius-sm)',
+            fontSize: 12, cursor: 'pointer',
           }}
         >
           <Plus size={12} /> Add Page
         </button>
 
-        {/* Delete page */}
         {pages.length > 1 && (
           <button
             onClick={() => deleteStoryboardPage(sheet.id, activePage)}
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '4px 10px',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-              fontSize: 12,
-              cursor: 'pointer',
+              background: 'transparent', color: 'var(--text-secondary)',
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              fontSize: 12, cursor: 'pointer',
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#e8462a'
-              e.currentTarget.style.color = '#e8462a'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border)'
-              e.currentTarget.style.color = 'var(--text-secondary)'
-            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#e8462a'; e.currentTarget.style.color = '#e8462a' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
           >
             <Trash2 size={12} /> Delete Page
           </button>
         )}
 
-        {/* Focus mode indicator */}
         {focusedPanel && (
           <>
             <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
@@ -171,16 +163,27 @@ export default function StoryboardView({ sheet }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px',
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 12,
-                cursor: 'pointer',
+                background: 'transparent', color: 'var(--text-secondary)',
+                border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                fontSize: 12, cursor: 'pointer',
               }}
             >
               <X size={12} /> Exit Focus
             </button>
+          </>
+        )}
+
+        {/* ── Creation date ── pushed to the right */}
+        {createdLabel && (
+          <>
+            <div style={{ flex: 1 }} />
+            <span style={{
+              fontSize: 11,
+              color: 'var(--text-muted)',
+              letterSpacing: '0.02em',
+            }}>
+              Created {createdLabel}
+            </span>
           </>
         )}
       </div>
@@ -192,8 +195,6 @@ export default function StoryboardView({ sheet }) {
         padding: focusedPanel ? 0 : 16,
         boxSizing: 'border-box',
       }}>
-
-        {/* Focus mode — single panel fullscreen */}
         {focusedPanel ? (
           <div style={{ width: '100%', height: '100%' }}>
             <StoryboardPanel
@@ -206,7 +207,6 @@ export default function StoryboardView({ sheet }) {
             />
           </div>
         ) : (
-          /* 3x3 Grid */
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
@@ -217,13 +217,7 @@ export default function StoryboardView({ sheet }) {
             boxSizing: 'border-box',
           }}>
             {page.panels.map((panel) => (
-              <div
-                key={panel.id}
-                style={{
-                  aspectRatio: '4/3',
-                  minHeight: 200,
-                }}
-              >
+              <div key={panel.id} style={{ aspectRatio: '4/3', minHeight: 200 }}>
                 <StoryboardPanel
                   panel={panel}
                   pageIndex={activePage}

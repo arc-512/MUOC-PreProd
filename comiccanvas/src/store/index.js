@@ -529,6 +529,8 @@ const useStore = create((set, get) => ({
   syncMessage: '',
   setSyncStatus: (syncStatus, syncMessage = '') => set({ syncStatus, syncMessage }),
   setLastSynced: (lastSynced) => set({ lastSynced }),
+  focusedPanelId: null,
+  setFocusedPanelId: (id) => set({ focusedPanelId: id }),
 }))
 
 export { SHEET_TYPES }

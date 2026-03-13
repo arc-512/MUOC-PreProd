@@ -4,10 +4,6 @@ import useStore from '../../store'
 const MIN_SIZE = 30
 
 // ── Persistent canvas store ───────────────────────────
-// Canvases are created once and never destroyed by React.
-// Each panel gets its own canvas keyed by panel.id.
-// When a panel mounts it grabs its canvas and appends it to the container.
-// When it unmounts the canvas is detached but kept alive in this map.
 const canvasStore = {}
 
 function getCanvas(panelId) {
@@ -23,6 +19,12 @@ function getCanvas(panelId) {
         canvasStore[panelId] = canvas
     }
     return canvasStore[panelId]
+}
+
+function isCanvasBlank(canvas) {
+    const ctx = canvas.getContext('2d')
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    return data.every(v => v === 0)
 }
 
 function restoreCanvasFromDrawing(panelId, drawing) {
@@ -416,22 +418,24 @@ function ImageObj({ obj, isSelected, onSelect, onDelete, onChange }) {
 // ── Drawing Canvas ────────────────────────────────────
 // Uses persistent canvas store — canvas is never destroyed by React,
 // just attached/detached from the DOM on mount/unmount.
+// The panel.drawing restore effect is intentionally removed — it caused
+// the eraser bug by wiping the canvas every time a save was made.
+// Restore only happens on mount when the canvas is genuinely blank.
 function DrawingCanvas({ panel, pageIndex, sheet, activeTool, brushColor, brushSize }) {
     const containerRef = useRef(null)
     const isDrawing = useRef(false)
     const lastPos = useRef(null)
+    const lastRestoredDrawing = useRef(null)
     const savePanelDrawing = useStore(s => s.savePanelDrawing)
 
-    // On mount: grab or create the persistent canvas and append it
-    // On unmount: detach it (pixels stay intact in canvasStore)
+    // Mount: attach persistent canvas. Restore only if canvas is blank.
     useEffect(() => {
         const container = containerRef.current
         if (!container) return
         const canvas = getCanvas(panel.id)
 
-        // If this panel has saved drawing data and canvas is blank, restore it
-        if (panel.drawing && canvas.getContext('2d')
-            .getImageData(0, 0, 1, 1).data.every(v => v === 0)) {
+        if (panel.drawing && isCanvasBlank(canvas)) {
+            lastRestoredDrawing.current = panel.drawing
             restoreCanvasFromDrawing(panel.id, panel.drawing)
         }
 
@@ -446,24 +450,26 @@ function DrawingCanvas({ panel, pageIndex, sheet, activeTool, brushColor, brushS
         }
     }, [panel.id])
 
-    // When loaded from GitHub, panel.drawing changes — restore onto existing canvas
+    // GitHub load restore: only if drawing changed externally AND canvas is blank
     useEffect(() => {
         if (!panel.drawing) return
+        if (panel.drawing === lastRestoredDrawing.current) return
+        const canvas = getCanvas(panel.id)
+        if (!isCanvasBlank(canvas)) return
+        lastRestoredDrawing.current = panel.drawing
         restoreCanvasFromDrawing(panel.id, panel.drawing)
-    }, [panel.drawing])
+    }, [panel.drawing, panel.id])
 
     // Update cursor and pointer events when tool changes
     useEffect(() => {
         const canvas = canvasStore[panel.id]
         if (!canvas) return
-        const isDrawingTool = activeTool === 'pen' || activeTool === 'eraser'
         canvas.style.cursor = activeTool === 'pen' ? 'crosshair'
             : activeTool === 'eraser' ? 'cell' : 'default'
-        canvas.style.pointerEvents = isDrawingTool ? 'auto' : 'none'
+        canvas.style.pointerEvents = (activeTool === 'pen' || activeTool === 'eraser') ? 'auto' : 'none'
     }, [activeTool, panel.id])
 
-    // Pointer event handlers — attached to the container div
-    // and forwarded to the persistent canvas
+    // Pointer events attached directly to persistent canvas
     useEffect(() => {
         const canvas = canvasStore[panel.id]
         if (!canvas) return
@@ -512,7 +518,9 @@ function DrawingCanvas({ panel, pageIndex, sheet, activeTool, brushColor, brushS
             if (!isDrawing.current) return
             isDrawing.current = false
             lastPos.current = null
-            savePanelDrawing(sheet.id, pageIndex, panel.id, canvas.toDataURL())
+            const data = canvas.toDataURL()
+            lastRestoredDrawing.current = data
+            savePanelDrawing(sheet.id, pageIndex, panel.id, data)
         }
 
         canvas.addEventListener('pointerdown', onPointerDown)
@@ -535,7 +543,7 @@ function DrawingCanvas({ panel, pageIndex, sheet, activeTool, brushColor, brushS
                 position: 'absolute',
                 inset: 0,
                 zIndex: 4,
-                pointerEvents: 'none', // canvas itself handles pointer events
+                pointerEvents: 'none',
             }}
         />
     )
@@ -650,7 +658,7 @@ export default function StoryboardPanel({ panel, pageIndex, sheet, isFocused, on
                 >⤢ Focus</button>
             )}
 
-            {/* Drawing canvas — persistent, managed outside React */}
+            {/* Drawing canvas */}
             <DrawingCanvas
                 panel={panel}
                 pageIndex={pageIndex}

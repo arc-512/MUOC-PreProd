@@ -12,6 +12,17 @@ export default function App() {
   const sheets = useStore(s => s.sheets)
   const activeSheetId = useStore(s => s.activeSheetId)
   const setActiveSheet = useStore(s => s.setActiveSheet)
+  const focusedPanelId = useStore(s => s.focusedPanelId)
+
+  const activeSheet = sheets.find(s => s.id === activeSheetId)
+
+  // Show layers panel only for:
+  // - Brainstorm sheets (always)
+  // - Storyboard sheets only when a panel is in focus mode
+  const showLayersPanel = activeSheet && (
+    activeSheet.type === 'brainstorm' ||
+    (activeSheet.type === 'storyboard' && !!focusedPanelId)
+  )
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -48,12 +59,17 @@ export default function App() {
   }, [])
 
   return (
-    <div className="app-layout">
+    <div
+      className="app-layout"
+      style={{
+        gridTemplateColumns: `var(--toolbar-w) 1fr ${showLayersPanel ? 'var(--layers-w)' : '0px'}`,
+      }}
+    >
       <Navbar />
       <SheetTabs />
       <Toolbar />
       <CanvasArea />
-      <LayersPanel />
+      {showLayersPanel && <LayersPanel />}
       <ModalManager />
     </div>
   )

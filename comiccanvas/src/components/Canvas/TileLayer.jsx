@@ -115,42 +115,11 @@ const TileLayer = forwardRef(({ sheetId, zoom, pan, viewportW, viewportH }, ref)
     render()
   }, [getTile, render])
 
-  const undoSnapshot = useRef({})
-
-  const saveSnapshot = useCallback((tiles) => {
-    const store = getSheetTiles(sheetId)
-    undoSnapshot.current = {}
-    tiles.forEach(({ tx, ty }) => {
-      const key = `${tx}_${ty}`
-      const offscreen = store[key]
-      if (offscreen) {
-        const snap = document.createElement('canvas')
-        snap.width = TILE_SIZE
-        snap.height = TILE_SIZE
-        snap.getContext('2d').drawImage(offscreen, 0, 0)
-        undoSnapshot.current[key] = { snap, tx, ty }
-      }
-    })
-  }, [sheetId])
-
-  const restoreSnapshot = useCallback(() => {
-    Object.values(undoSnapshot.current).forEach(({ snap, tx, ty }) => {
-      const offscreen = getTile(tx, ty)
-      const ctx = offscreen.getContext('2d')
-      ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE)
-      ctx.drawImage(snap, 0, 0)
-    })
-    render()
-  }, [getTile, render])
-
   useImperativeHandle(ref, () => ({
     drawStroke,
     drawDot,
-    saveSnapshot,
-    restoreSnapshot,
-    getTileData: () => getSheetTiles(sheetId),
     render,
-  }), [drawStroke, drawDot, saveSnapshot, restoreSnapshot, render, sheetId])
+  }), [drawStroke, drawDot, render])
 
   return (
     <canvas

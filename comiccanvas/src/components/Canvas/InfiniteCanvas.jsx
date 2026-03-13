@@ -33,13 +33,11 @@ export default function InfiniteCanvas({ sheet }) {
   const lastPanPos = useRef({ x: 0, y: 0 })
   const isDrawing = useRef(false)
   const lastWorldPos = useRef(null)
-  const undoStack = useRef([])
 
   // Restore tiles from GitHub-loaded data when sheet first mounts
   useEffect(() => {
     if (sheet.brainstormTiles) {
       restoreTilesFromData(sheet.id, sheet.brainstormTiles)
-      // Trigger render after tiles are restored
       setTimeout(() => tileLayerRef.current?.render(), 100)
     }
   }, [sheet.id, sheet.brainstormTiles])
@@ -66,30 +64,6 @@ export default function InfiniteCanvas({ sheet }) {
     x: (sx - panRef.current.x) / zoomRef.current,
     y: (sy - panRef.current.y) / zoomRef.current,
   }), [])
-
-  const getVisibleTiles = useCallback(() => {
-    const { w, h } = viewportRef.current
-    const z = zoomRef.current
-    const p = panRef.current
-    const topLeftX = -p.x / z
-    const topLeftY = -p.y / z
-    const bottomRightX = (w - p.x) / z
-    const bottomRightY = (h - p.y) / z
-
-    const startTX = Math.floor(topLeftX / TILE_SIZE) - 1
-    const startTY = Math.floor(topLeftY / TILE_SIZE) - 1
-    const endTX = Math.ceil(bottomRightX / TILE_SIZE)
-    const endTY = Math.ceil(bottomRightY / TILE_SIZE)
-
-    const tiles = []
-    for (let tx = startTX; tx <= endTX; tx++) {
-      for (let ty = startTY; ty <= endTY; ty++) {
-        tiles.push({ tx, ty })
-        if (tiles.length >= 30) return tiles
-      }
-    }
-    return tiles
-  }, [])
 
   // ── Viewport tracking ────────────────────────────────
   useEffect(() => {
@@ -137,14 +111,7 @@ export default function InfiniteCanvas({ sheet }) {
   // ── Keyboard shortcuts ───────────────────────────────
   useEffect(() => {
     const handleKey = (e) => {
-      console.log('key', e.key, 'ctrl', e.ctrlKey, 'stack', undoStack.current.length)
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault()
-        if (undoStack.current.length === 0) return
-        undoStack.current.pop()
-        tileLayerRef.current?.restoreSnapshot()
-      }
       if (e.key === '0') {
         const { w, h } = viewportRef.current
         const fitZoom = Math.min(w, h) / (TILE_SIZE * 4)
@@ -180,26 +147,11 @@ export default function InfiniteCanvas({ sheet }) {
     if (isDrawingTool) {
       e.currentTarget.setPointerCapture(e.pointerId)
       isDrawing.current = true
-
-      // Snapshot a generous area around the pointer, not just visible tiles
       const w = screenToWorld(sx, sy)
-      const radius = 10 // tiles in each direction
-      const snapTiles = []
-      const centerTX = Math.floor(w.x / TILE_SIZE)
-      const centerTY = Math.floor(w.y / TILE_SIZE)
-      for (let tx = centerTX - radius; tx <= centerTX + radius; tx++) {
-        for (let ty = centerTY - radius; ty <= centerTY + radius; ty++) {
-          snapTiles.push({ tx, ty })
-        }
-      }
-      tileLayerRef.current?.saveSnapshot(snapTiles)
-      undoStack.current.push(true)
-      if (undoStack.current.length > 3) undoStack.current.shift()
-
       lastWorldPos.current = w
       tileLayerRef.current?.drawDot(w.x, w.y, brushColorRef.current, brushSizeRef.current, tool === 'eraser')
     }
-  }, [getVisibleTiles, screenToWorld])
+  }, [screenToWorld])
 
   const handlePointerMove = useCallback((e) => {
     if (e.pointerType === 'touch' && !e.isPrimary) return
@@ -214,10 +166,7 @@ export default function InfiniteCanvas({ sheet }) {
     if (isPanning.current) {
       const dx = sx - lastPanPos.current.x
       const dy = sy - lastPanPos.current.y
-      const newPan = {
-        x: panRef.current.x + dx,
-        y: panRef.current.y + dy,
-      }
+      const newPan = { x: panRef.current.x + dx, y: panRef.current.y + dy }
       panRef.current = newPan
       setPan({ ...newPan })
       lastPanPos.current = { x: sx, y: sy }
@@ -230,11 +179,9 @@ export default function InfiniteCanvas({ sheet }) {
 
     const w = screenToWorld(sx, sy)
     tileLayerRef.current?.drawStroke(
-      lastWorldPos.current.x,
-      lastWorldPos.current.y,
+      lastWorldPos.current.x, lastWorldPos.current.y,
       w.x, w.y,
-      brushColorRef.current,
-      brushSizeRef.current,
+      brushColorRef.current, brushSizeRef.current,
       tool === 'eraser'
     )
     lastWorldPos.current = w
@@ -257,12 +204,9 @@ export default function InfiniteCanvas({ sheet }) {
     <div
       ref={containerRef}
       style={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-        cursor: getCursor(),
-        touchAction: 'none',
+        width: '100%', height: '100%',
+        position: 'relative', overflow: 'hidden',
+        cursor: getCursor(), touchAction: 'none',
         background: 'var(--bg-base)',
       }}
       onPointerDown={handlePointerDown}
@@ -272,15 +216,13 @@ export default function InfiniteCanvas({ sheet }) {
     >
       {/* Dot grid */}
       <div style={{
-        position: 'absolute',
-        inset: 0,
+        position: 'absolute', inset: 0,
         backgroundImage: `radial-gradient(circle, var(--border-strong) 1px, transparent 1px)`,
         backgroundSize: `${32 * zoom}px ${32 * zoom}px`,
         backgroundPosition: `${pan.x % (32 * zoom)}px ${pan.y % (32 * zoom)}px`,
         pointerEvents: 'none',
       }} />
 
-      {/* Tile layer */}
       <TileLayer
         ref={tileLayerRef}
         sheetId={sheet.id}
@@ -290,7 +232,6 @@ export default function InfiniteCanvas({ sheet }) {
         viewportH={viewportSize.h}
       />
 
-      {/* Object layer */}
       <ObjectLayer
         zoom={zoom}
         pan={pan}
@@ -301,19 +242,12 @@ export default function InfiniteCanvas({ sheet }) {
 
       {/* Zoom controls */}
       <div style={{
-        position: 'absolute',
-        bottom: 16,
-        left: '50%',
+        position: 'absolute', bottom: 16, left: '50%',
         transform: 'translateX(-50%)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-md)',
-        padding: '4px 8px',
-        zIndex: 50,
-        boxShadow: 'var(--shadow-md)',
+        display: 'flex', alignItems: 'center', gap: 4,
+        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)', padding: '4px 8px',
+        zIndex: 50, boxShadow: 'var(--shadow-md)',
       }}>
         <button
           onClick={() => {
@@ -325,12 +259,7 @@ export default function InfiniteCanvas({ sheet }) {
             }
             updateZoomPan(newZoom, newPan)
           }}
-          style={{
-            width: 24, height: 24,
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-secondary)', fontSize: 16,
-          }}
+          style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 16 }}
         >−</button>
         <button
           onClick={() => {
@@ -341,11 +270,7 @@ export default function InfiniteCanvas({ sheet }) {
               y: h / 2 - (TILE_SIZE * 4 * fitZoom) / 2,
             })
           }}
-          style={{
-            padding: '2px 8px', fontSize: 11,
-            color: 'var(--text-secondary)',
-            minWidth: 48, textAlign: 'center',
-          }}
+          style={{ padding: '2px 8px', fontSize: 11, color: 'var(--text-secondary)', minWidth: 48, textAlign: 'center' }}
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -359,12 +284,7 @@ export default function InfiniteCanvas({ sheet }) {
             }
             updateZoomPan(newZoom, newPan)
           }}
-          style={{
-            width: 24, height: 24,
-            display: 'flex', alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-secondary)', fontSize: 16,
-          }}
+          style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: 16 }}
         >+</button>
       </div>
     </div>
