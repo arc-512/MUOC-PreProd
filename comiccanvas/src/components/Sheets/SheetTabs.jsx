@@ -97,6 +97,11 @@ export default function SheetTabs() {
           className="tabs-add-btn"
           title="Add sheet"
           onClick={() => openModal('addSheet')}
+          style={{
+            background: 'var(--accent)',
+            color: 'white',
+            borderRadius: 'var(--radius-sm)',
+          }}
         >
           <Plus size={16} />
         </button>

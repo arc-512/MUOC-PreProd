@@ -34,11 +34,24 @@ const SHEET_TYPES = {
   },
 }
 
-const createPanel = (pageIndex, panelIndex) => ({
-  id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-  label: `Panel ${pageIndex * 9 + panelIndex + 1}`,
-  objects: [],
+const createPanelLayer = (index = 0) => ({
+  id: `player-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+  name: `Layer ${index + 1}`,
+  visible: true,
+  locked: false,
 })
+
+const createPanel = (pageIndex, panelIndex) => {
+  const defaultLayer = createPanelLayer(0)
+  return {
+    id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+    label: `Panel ${pageIndex * 9 + panelIndex + 1}`,
+    objects: [],
+    layers: [defaultLayer],
+    activeLayer: defaultLayer.id,
+    drawings: {}, // { layerId: dataURL }
+  }
+}
 
 const createPage = (pageIndex) => ({
   id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
@@ -105,7 +118,6 @@ const useStore = create((set, get) => ({
     const merged = sheets.map(sh =>
       sh.id === keepId ? { ...sh, activePage: curPage } : sh
     )
-    // Clear in-memory tile store for all loaded sheets so GitHub tile data is used
     clearSheetTiles(sheets.map(s => s.id))
     set({ sheets: merged, activeSheetId: keepId })
   },
@@ -136,7 +148,7 @@ const useStore = create((set, get) => ({
     return { sheets, activeSheetId }
   }),
 
-  // ── Layers ─────────────────────────────────────────────
+  // ── Layers (sheet-level, for brainstorm etc.) ──────────
   addLayer: (sheetId) => set(s => ({
     sheets: s.sheets.map(sh => {
       if (sh.id !== sheetId) return sh
@@ -189,6 +201,123 @@ const useStore = create((set, get) => ({
     sheets: s.sheets.map(sh => sh.id !== sheetId ? sh : { ...sh, layers }),
   })),
 
+  // ── Panel Layers ───────────────────────────────────────
+  addPanelLayer: (sheetId, pageIndex, panelId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => {
+            if (p.id !== panelId) return p
+            const newLayer = createPanelLayer((p.layers || []).length)
+            return {
+              ...p,
+              layers: [...(p.layers || []), newLayer],
+              activeLayer: newLayer.id,
+            }
+          }),
+        }),
+      }
+    }),
+  })),
+
+  deletePanelLayer: (sheetId, pageIndex, panelId, layerId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => {
+            if (p.id !== panelId) return p
+            if ((p.layers || []).length <= 1) return p
+            const layers = p.layers.filter(l => l.id !== layerId)
+            const activeLayer = p.activeLayer === layerId ? layers[0]?.id : p.activeLayer
+            const drawings = { ...(p.drawings || {}) }
+            delete drawings[layerId]
+            return { ...p, layers, activeLayer, drawings }
+          }),
+        }),
+      }
+    }),
+  })),
+
+  renamePanelLayer: (sheetId, pageIndex, panelId, layerId, name) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : {
+            ...p,
+            layers: p.layers.map(l => l.id === layerId ? { ...l, name } : l),
+          }),
+        }),
+      }
+    }),
+  })),
+
+  setActivePanelLayer: (sheetId, pageIndex, panelId, layerId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : { ...p, activeLayer: layerId }),
+        }),
+      }
+    }),
+  })),
+
+  togglePanelLayerVisibility: (sheetId, pageIndex, panelId, layerId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : {
+            ...p,
+            layers: p.layers.map(l => l.id === layerId ? { ...l, visible: !l.visible } : l),
+          }),
+        }),
+      }
+    }),
+  })),
+
+  togglePanelLayerLock: (sheetId, pageIndex, panelId, layerId) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : {
+            ...p,
+            layers: p.layers.map(l => l.id === layerId ? { ...l, locked: !l.locked } : l),
+          }),
+        }),
+      }
+    }),
+  })),
+
+  reorderPanelLayers: (sheetId, pageIndex, panelId, layers) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : { ...p, layers }),
+        }),
+      }
+    }),
+  })),
+
   // ── Storyboard ─────────────────────────────────────────
   addStoryboardPage: (sheetId) => set(s => ({
     sheets: s.sheets.map(sh => {
@@ -216,6 +345,24 @@ const useStore = create((set, get) => ({
     sheets: s.sheets.map(sh =>
       sh.id !== sheetId ? sh : { ...sh, activePage: pageIndex }
     ),
+  })),
+
+  // Swap two panels by index within a page
+  swapPanels: (sheetId, pageIndex, indexA, indexB) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => {
+          if (pi !== pageIndex) return pg
+          const panels = [...pg.panels]
+          const tmp = panels[indexA]
+          panels[indexA] = panels[indexB]
+          panels[indexB] = tmp
+          return { ...pg, panels }
+        }),
+      }
+    }),
   })),
 
   updatePanelLabel: (sheetId, pageIndex, panelId, label) => set(s => ({
@@ -288,14 +435,18 @@ const useStore = create((set, get) => ({
     }),
   })),
 
-  savePanelDrawing: (sheetId, pageIndex, panelId, dataURL) => set(s => ({
+  // Saves drawing per layer: layerId required
+  savePanelDrawing: (sheetId, pageIndex, panelId, layerId, dataURL) => set(s => ({
     sheets: s.sheets.map(sh => {
       if (sh.id !== sheetId) return sh
       return {
         ...sh,
         pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
           ...pg,
-          panels: pg.panels.map(p => p.id !== panelId ? p : { ...p, drawing: dataURL }),
+          panels: pg.panels.map(p => p.id !== panelId ? p : {
+            ...p,
+            drawings: { ...(p.drawings || {}), [layerId]: dataURL },
+          }),
         }),
       }
     }),

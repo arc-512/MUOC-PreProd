@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import useStore from '../../store'
 import StoryboardPanel from './StoryboardPanel'
 import { ChevronLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
@@ -15,18 +15,19 @@ export default function StoryboardView({ sheet }) {
   const setStoryboardPage = useStore(s => s.setStoryboardPage)
   const focusedPanelId = useStore(s => s.focusedPanelId)
   const setFocusedPanelId = useStore(s => s.setFocusedPanelId)
+  const swapPanels = useStore(s => s.swapPanels)
+
+  const dragPanelIndex = useRef(null)
 
   const pages = sheet.pages || []
   const activePage = sheet.activePage || 0
   const page = pages[activePage]
 
-  // Clear focus on mount and on sheet switch
   useEffect(() => {
     setFocusedPanelId(null)
     return () => setFocusedPanelId(null)
   }, [sheet.id])
 
-  // Esc to exit focus mode
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'Escape') setFocusedPanelId(null)
@@ -45,20 +46,14 @@ export default function StoryboardView({ sheet }) {
       <button
         onClick={() => addStoryboardPage(sheet.id)}
         style={{
-          marginLeft: 8,
-          padding: '4px 12px',
-          background: 'var(--accent)',
-          color: 'white',
-          border: 'none',
-          borderRadius: 4,
-          cursor: 'pointer',
-          fontSize: 13,
+          marginLeft: 8, padding: '4px 12px',
+          background: 'var(--accent)', color: 'white',
+          border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13,
         }}
       >Add Page</button>
     </div>
   )
 
-  // Guard: if focusedPanelId doesn't match any panel on this page, treat as null
   const focusedPanel = focusedPanelId
     ? (page.panels.find(p => p.id === focusedPanelId) || null)
     : null
@@ -67,24 +62,18 @@ export default function StoryboardView({ sheet }) {
 
   return (
     <div style={{
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      background: 'var(--bg-base)',
-      overflow: 'hidden',
+      width: '100%', height: '100%',
+      display: 'flex', flexDirection: 'column',
+      background: 'var(--bg-base)', overflow: 'hidden',
     }}>
 
       {/* ── Top bar ──────────────────────────────────── */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
+        display: 'flex', alignItems: 'center', gap: 8,
         padding: '8px 16px',
         borderBottom: '1px solid var(--border)',
         background: 'var(--bg-surface)',
-        flexShrink: 0,
-        zIndex: 30,
+        flexShrink: 0, zIndex: 30,
       }}>
         <button
           onClick={() => setStoryboardPage(sheet.id, Math.max(0, activePage - 1))}
@@ -134,7 +123,6 @@ export default function StoryboardView({ sheet }) {
         >
           <Plus size={12} /> Add Page
         </button>
-
         {pages.length > 1 && (
           <button
             onClick={() => deleteStoryboardPage(sheet.id, activePage)}
@@ -173,15 +161,10 @@ export default function StoryboardView({ sheet }) {
           </>
         )}
 
-        {/* ── Creation date ── pushed to the right */}
         {createdLabel && (
           <>
             <div style={{ flex: 1 }} />
-            <span style={{
-              fontSize: 11,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.02em',
-            }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>
               Created {createdLabel}
             </span>
           </>
@@ -216,8 +199,29 @@ export default function StoryboardView({ sheet }) {
             minHeight: '100%',
             boxSizing: 'border-box',
           }}>
-            {page.panels.map((panel) => (
-              <div key={panel.id} style={{ aspectRatio: '4/3', minHeight: 200 }}>
+            {page.panels.map((panel, index) => (
+              <div
+                key={panel.id}
+                draggable
+                onDragStart={() => { dragPanelIndex.current = index }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (dragPanelIndex.current !== null && dragPanelIndex.current !== index) {
+                    swapPanels(sheet.id, activePage, dragPanelIndex.current, index)
+                  }
+                  dragPanelIndex.current = null
+                }}
+                style={{ aspectRatio: '4/3', minHeight: 200, position: 'relative' }}
+              >
+                {/* Drag handle */}
+                <div style={{
+                  position: 'absolute', top: 6, left: 50, zIndex: 25,
+                  color: 'var(--text-muted)', fontSize: 14,
+                  cursor: 'grab', pointerEvents: 'none',
+                  opacity: 0.4,
+                }}>
+                  ⠿
+                </div>
                 <StoryboardPanel
                   panel={panel}
                   pageIndex={activePage}
