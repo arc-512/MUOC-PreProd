@@ -1,0 +1,19 @@
+{
+  "id": "sheet-1773681542811-oug51",
+  "type": "brainstorm",
+  "name": "sample BS",
+  "createdAt": 1773681542811,
+  "layers": [
+    {
+      "id": "layer-1",
+      "name": "Layer 1",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "activeLayer": "layer-1",
+  "objects": [],
+  "background": null,
+  "pages": [],
+  "activePage": 0
+}
