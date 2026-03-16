@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-16T17:16:55.949Z",
+  "savedAt": "2026-03-16T17:19:16.033Z",
   "sheets": [
     {
       "id": "sheet-1773679181967-hn8qj",
@@ -14,6 +14,13 @@
       "name": "Sample",
       "type": "moodboard",
       "createdAt": 1773681127369,
+      "status": "draft"
+    },
+    {
+      "id": "sheet-1773681542811-oug51",
+      "name": "sample BS",
+      "type": "brainstorm",
+      "createdAt": 1773681542811,
       "status": "draft"
     }
   ]
