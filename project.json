@@ -1,26 +1,12 @@
 {
   "version": 1,
-  "savedAt": "2026-03-16T17:27:39.236Z",
+  "savedAt": "2026-03-18T06:51:03.595Z",
   "sheets": [
     {
       "id": "sheet-1773679181967-hn8qj",
       "name": "Storyboard",
       "type": "storyboard",
       "createdAt": 1773679181967,
-      "status": "draft"
-    },
-    {
-      "id": "sheet-1773681127369-gitlf",
-      "name": "Sample",
-      "type": "moodboard",
-      "createdAt": 1773681127369,
-      "status": "draft"
-    },
-    {
-      "id": "sheet-1773681542811-oug51",
-      "name": "sample BS",
-      "type": "brainstorm",
-      "createdAt": 1773681542811,
       "status": "draft"
     }
   ]
