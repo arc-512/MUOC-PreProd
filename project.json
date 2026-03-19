@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": "2026-03-19T18:45:54.921Z",
+  "savedAt": "2026-03-19T18:49:13.819Z",
   "sheets": [
     {
       "id": "sheet-1773679181967-hn8qj",
@@ -14,6 +14,13 @@
       "name": "sample",
       "type": "moodboard",
       "createdAt": 1773945907589,
+      "status": "draft"
+    },
+    {
+      "id": "sheet-1773945999535-ytssx",
+      "name": "sample map",
+      "type": "map",
+      "createdAt": 1773945999535,
       "status": "draft"
     }
   ]
