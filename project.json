@@ -1,12 +1,19 @@
 {
   "version": 1,
-  "savedAt": "2026-03-18T07:10:21.566Z",
+  "savedAt": "2026-03-19T18:45:54.921Z",
   "sheets": [
     {
       "id": "sheet-1773679181967-hn8qj",
       "name": "Storyboard",
       "type": "storyboard",
       "createdAt": 1773679181967,
+      "status": "draft"
+    },
+    {
+      "id": "sheet-1773945907589-y12rz",
+      "name": "sample",
+      "type": "moodboard",
+      "createdAt": 1773945907589,
       "status": "draft"
     }
   ]
