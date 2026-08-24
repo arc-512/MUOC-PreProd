@@ -19,10 +19,7 @@ export default function App() {
   // Show layers panel only for:
   // - Brainstorm sheets (always)
   // - Storyboard sheets only when a panel is in focus mode
-  const showLayersPanel = activeSheet && (
-    activeSheet.type === 'brainstorm' ||
-    (activeSheet.type === 'storyboard' && !!focusedPanelId)
-  )
+  const showLayersPanel = activeSheet && activeSheet.type === 'brainstorm'
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)

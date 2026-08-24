@@ -35,7 +35,7 @@ export default function LayersPanel() {
     ? sheet.pages?.[pageIndex]?.panels?.find(p => p.id === focusedPanelId)
     : null
 
-  if (isStoryboard && !focusedPanel) return (
+  if (isStoryboard) return (
     <div style={{
       width: '100%', height: '100%',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -43,7 +43,7 @@ export default function LayersPanel() {
       color: 'var(--text-muted)', fontSize: 12, textAlign: 'center',
       background: 'var(--bg-surface)', borderLeft: '1px solid var(--border)',
     }}>
-      Focus a panel to edit its layers
+      Focus a panel to annotate
     </div>
   )
 

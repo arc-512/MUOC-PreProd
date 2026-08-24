@@ -41,17 +41,13 @@ const createPanelLayer = (index = 0) => ({
   locked: false,
 })
 
-const createPanel = (pageIndex, panelIndex) => {
-  const defaultLayer = createPanelLayer(0)
-  return {
-    id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-    label: `Panel ${pageIndex * 9 + panelIndex + 1}`,
-    objects: [],
-    layers: [defaultLayer],
-    activeLayer: defaultLayer.id,
-    drawings: {}, // { layerId: dataURL }
-  }
-}
+const createPanel = (pageIndex, panelIndex) => ({
+  id: `panel-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+  label: `Panel ${pageIndex * 9 + panelIndex + 1}`,
+  image: null,
+  annotation: null,
+  objects: [],
+})
 
 const createPage = (pageIndex) => ({
   id: `page-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
@@ -436,7 +432,7 @@ const useStore = create((set, get) => ({
   })),
 
   // Saves drawing per layer: layerId required
-  savePanelDrawing: (sheetId, pageIndex, panelId, layerId, dataURL) => set(s => ({
+  savePanelImage: (sheetId, pageIndex, panelId, src) => set(s => ({
     sheets: s.sheets.map(sh => {
       if (sh.id !== sheetId) return sh
       return {
@@ -444,8 +440,22 @@ const useStore = create((set, get) => ({
         pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
           ...pg,
           panels: pg.panels.map(p => p.id !== panelId ? p : {
-            ...p,
-            drawings: { ...(p.drawings || {}), [layerId]: dataURL },
+            ...p, image: src, annotation: null, objects: [],
+          }),
+        }),
+      }
+    }),
+  })),
+
+  savePanelAnnotation: (sheetId, pageIndex, panelId, dataURL) => set(s => ({
+    sheets: s.sheets.map(sh => {
+      if (sh.id !== sheetId) return sh
+      return {
+        ...sh,
+        pages: sh.pages.map((pg, pi) => pi !== pageIndex ? pg : {
+          ...pg,
+          panels: pg.panels.map(p => p.id !== panelId ? p : {
+            ...p, annotation: dataURL,
           }),
         }),
       }
